@@ -1,18 +1,17 @@
 from fast_flights import create_filter, get_flights_from_filter, FlightData, Passengers
 
-filter = create_filter(
-    flight_data=[
-        # Include more if it's not a one-way trip
-        FlightData(
-            date="2025-07-01",  # Date of departure
-            from_airport="TPE",  # Departure (airport)
-            to_airport="MYJ",  # Arrival (airport)
-        )
-    ],
-    trip="one-way",  # Trip type
-    passengers=Passengers(adults=2, children=1, infants_in_seat=0, infants_on_lap=0),  # Passengers
-    seat="economy",  # Seat type
-    max_stops=1,  # Maximum number of stops
-)
-print(filter.as_b64().decode("utf-8"))
-print(get_flights_from_filter(filter, mode="common"))
+if __name__ == "__main__":
+    filter = create_filter(
+        flight_data=[
+            FlightData(date="2025-04-01", from_airport="FCO", to_airport="MUC"),
+            FlightData(date="2025-04-12", from_airport="MUC", to_airport="FCO"),
+        ],
+        trip="return",
+        passengers=Passengers(adults=1),
+        seat="economy",
+    )
+
+    print(filter.as_b64().decode("utf-8"))
+
+    flights = get_flights_from_filter(filter, currency="EUR", mode="common")
+    print(flights)

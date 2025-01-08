@@ -177,9 +177,10 @@ def parse_response(r: Response, *, filter: TFSData, dangerously_allow_looping_la
             delay = safe(item.css_first(".GsCCve")).text() or None
 
             # Get prices
-            price = safe(item.css_first(".YMlIz.FpEdX")).text() or None
+            price = item.css_first(".YMlIz.FpEdX").text(strip=True) or None
             price = price.replace(",", "") if price else None
-            price = int(re.search(r"(\d+)", price).group(1)) if price else None  # convert to int
+            if price and price != "Price unavailable":
+                price = int(re.search(r"(\d+)", price).group(1)) if price else None  # convert to int
 
             # Get airline logo url
             airline_logo_url = parse_airline_logo_url(item)
@@ -211,7 +212,18 @@ def parse_response(r: Response, *, filter: TFSData, dangerously_allow_looping_la
             )
 
     current_price = safe(parser.css_first("span.gOatQ")).text()
-    if not flights:
-        raise RuntimeError("No flights found:\n{}".format(r.text_markdown))
 
-    return Result(current_price=current_price, flights=[Flight(**fl) for fl in flights])  # type: ignore
+    if not flights:
+        print("No flights found")
+        return
+
+    # Remove duplicates
+    unique_flights = []
+    for fl in flights:
+        flight_obj = Flight(**fl)
+        if flight_obj not in unique_flights:
+            unique_flights.append(flight_obj)
+
+    flight_objects = unique_flights
+
+    return Result(current_price=current_price, flights=flight_objects)  # type: ignore

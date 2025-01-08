@@ -1,6 +1,7 @@
 from typing import Literal, List, Optional
 from .flights_impl import FlightData, Passengers, TFSData
 
+
 def create_filter(
     *,
     flight_data: List[FlightData],
@@ -21,6 +22,4 @@ def create_filter(
     for fd in flight_data:
         fd.max_stops = max_stops
 
-    return TFSData.from_interface(
-        flight_data=flight_data, trip=trip, passengers=passengers, seat=seat
-    )
+    return TFSData.from_interface(flight_data=flight_data, trip=trip, passengers=passengers, seat=seat)

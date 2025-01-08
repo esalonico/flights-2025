@@ -39,3 +39,16 @@ class Flight:
         if self.layover_duration:
             hours, minutes = divmod(self.layover_duration, 60)
             return f"{hours} hr {minutes} min"
+
+    # allow comparison of Flight objects
+    def __eq__(self, other: Flight) -> bool:
+        conditions = [
+            self.airport_from == other.airport_from,
+            self.airport_to == other.airport_to,
+            self.departure == other.departure,
+            self.arrival == other.arrival,
+            self.price == other.price,
+            self.airlines == other.airlines,
+        ]
+
+        return all(conditions)

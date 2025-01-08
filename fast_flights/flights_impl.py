@@ -1,6 +1,7 @@
 """Typed implementation of flights_pb2.py"""
 
 import base64
+from datetime import datetime
 from typing import Any, List, Optional, TYPE_CHECKING, Literal, Union
 
 from . import flights_pb2 as PB
@@ -34,13 +35,12 @@ class FlightData:
         to_airport: Union[Airport, str],
         max_stops: Optional[int] = None,
     ):
+        assert datetime.strptime(date, "%Y-%m-%d"), "Invalid date format. Use YYYY-MM-DD"
+        assert datetime.strptime(date, "%Y-%m-%d") >= datetime.now(), "Date must be in the future"
+
         self.date = date
-        self.from_airport = (
-            from_airport.value if isinstance(from_airport, Airport) else from_airport
-        )
-        self.to_airport = (
-            to_airport.value if isinstance(to_airport, Airport) else to_airport
-        )
+        self.from_airport = from_airport.value if isinstance(from_airport, Airport) else from_airport
+        self.to_airport = to_airport.value if isinstance(to_airport, Airport) else to_airport
         self.max_stops = max_stops
 
     def attach(self, info: PB.Info) -> None:  # type: ignore
@@ -53,10 +53,7 @@ class FlightData:
 
     def __repr__(self) -> str:
         return (
-            f"FlightData(date={self.date!r}, "
-            f"from_airport={self.from_airport}, "
-            f"to_airport={self.to_airport}, "
-            f"max_stops={self.max_stops})"
+            f"FlightData(date={self.date!r}, " f"from_airport={self.from_airport}, " f"to_airport={self.to_airport}, " f"max_stops={self.max_stops})"
         )
 
 
@@ -69,12 +66,8 @@ class Passengers:
         infants_in_seat: int = 0,
         infants_on_lap: int = 0,
     ):
-        assert (
-            sum((adults, children, infants_in_seat, infants_on_lap)) <= 9
-        ), "Too many passengers (> 9)"
-        assert (
-            infants_on_lap <= adults
-        ), "You must have at least one adult per infant on lap"
+        assert sum((adults, children, infants_in_seat, infants_on_lap)) <= 9, "Too many passengers (> 9)"
+        assert infants_on_lap <= adults, "You must have at least one adult per infant on lap"
 
         self.pb = []
         self.pb += [PB.Passenger.ADULT for _ in range(adults)]
@@ -166,14 +159,7 @@ class TFSData:
             "first": PB.Seat.FIRST,
         }[seat]
 
-        return TFSData(
-            flight_data=flight_data,
-            seat=seat_t,
-            trip=trip_t,
-            passengers=passengers,
-            max_stops=max_stops  # Pass max_stops into TFSData
-        )
+        return TFSData(flight_data=flight_data, seat=seat_t, trip=trip_t, passengers=passengers, max_stops=max_stops)  # Pass max_stops into TFSData
 
     def __repr__(self) -> str:
         return f"TFSData(flight_data={self.flight_data!r}, max_stops={self.max_stops!r})"
-
