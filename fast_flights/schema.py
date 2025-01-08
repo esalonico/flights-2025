@@ -22,3 +22,5 @@ class Flight:
     delay: Optional[str]
     price: str
     airline_logo_url: Optional[str]
+    self_transfer: bool = False
+    hand_luggage_only: bool = False

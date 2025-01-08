@@ -105,7 +105,7 @@ def parse_response(r: Response, *, dangerously_allow_looping_last_item: bool = F
 
         for item in fl.css("ul.Rk10dc li")[: (None if dangerously_allow_looping_last_item or i == 0 else -1)]:
             # Flight name
-            name = safe(item.css_first("div.sSHqwe.tPgKwe.ogfYpf span")).text(strip=True)
+            name = safe(item.css_first("div.sSHqwe.tPgKwe.ogfYpf")).text(strip=True)
 
             # Get departure & arrival time
             dp_ar_node = item.css("span.mv1WYe div")
@@ -135,6 +135,12 @@ def parse_response(r: Response, *, dangerously_allow_looping_last_item: bool = F
             # Get airline logo url
             airline_logo_url = parse_airline_logo_url(item)
 
+            # Get self transfer
+            self_transfer = "Self transfer" in name
+
+            # Get hand luggage only
+            hand_luggage_only = item.css_matches("svg.vmWDCc")
+
             # Stops formatting
             try:
                 stops_fmt = 0 if stops == "Nonstop" else int(stops.split(" ", 1)[0])
@@ -153,6 +159,8 @@ def parse_response(r: Response, *, dangerously_allow_looping_last_item: bool = F
                     "delay": delay,
                     "price": price.replace(",", ""),
                     "airline_logo_url": airline_logo_url,
+                    "self_transfer": self_transfer,
+                    "hand_luggage_only": hand_luggage_only,
                 }
             )
 
