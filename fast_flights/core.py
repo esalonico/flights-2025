@@ -1,17 +1,19 @@
+import re
 from typing import List, Literal, Optional
 
 from selectolax.lexbor import LexborHTMLParser, LexborNode
 
-from .schema import Flight, Result
-from .flights_impl import FlightData, Passengers
-from .filter import TFSData
 from .fallback_playwright import fallback_playwright_fetch
+from .filter import TFSData
+from .flights_impl import FlightData, Passengers
 from .primp import Client, Response
+from .schema import Flight, Result
 
 
 def fetch(params: dict) -> Response:
-    client = Client(impersonate="chrome_126", verify=False)
+    client = Client(impersonate="chrome_128", verify=False)
     res = client.get("https://www.google.com/travel/flights", params=params)
+    print(res.url)
     assert res.status_code == 200, f"{res.status_code} Result: {res.text_markdown}"
     return res
 
@@ -72,9 +74,7 @@ def get_flights(
     )
 
 
-def parse_response(
-    r: Response, *, dangerously_allow_looping_last_item: bool = False
-) -> Result:
+def parse_response(r: Response, *, dangerously_allow_looping_last_item: bool = False) -> Result:
     class _blank:
         def text(self, *_, **__):
             return ""
@@ -87,19 +87,25 @@ def parse_response(
     def safe(n: Optional[LexborNode]):
         return n or blank
 
+    def parse_airline_logo_url(item: LexborNode) -> Optional[str]:
+        airline_logo_node = safe(item.css_first("div.EbY4Pc.P2UJoe"))
+        airline_logo_style = airline_logo_node.attributes.get("style", "")
+
+        pattern = r"--travel-primitives-themeable-image-default: url\((https?://[^\)]+)\);"
+        match = re.search(pattern, airline_logo_style)
+
+        if match:
+            return match.group(1)
+
     parser = LexborHTMLParser(r.text)
     flights = []
 
     for i, fl in enumerate(parser.css('div[jsname="IWWDBc"], div[jsname="YdtKid"]')):
         is_best_flight = i == 0
 
-        for item in fl.css("ul.Rk10dc li")[
-            : (None if dangerously_allow_looping_last_item or i == 0 else -1)
-        ]:
+        for item in fl.css("ul.Rk10dc li")[: (None if dangerously_allow_looping_last_item or i == 0 else -1)]:
             # Flight name
-            name = safe(item.css_first("div.sSHqwe.tPgKwe.ogfYpf span")).text(
-                strip=True
-            )
+            name = safe(item.css_first("div.sSHqwe.tPgKwe.ogfYpf span")).text(strip=True)
 
             # Get departure & arrival time
             dp_ar_node = item.css("span.mv1WYe div")
@@ -126,6 +132,9 @@ def parse_response(
             # Get prices
             price = safe(item.css_first(".YMlIz.FpEdX")).text() or "0"
 
+            # Get airline logo url
+            airline_logo_url = parse_airline_logo_url(item)
+
             # Stops formatting
             try:
                 stops_fmt = 0 if stops == "Nonstop" else int(stops.split(" ", 1)[0])
@@ -143,6 +152,7 @@ def parse_response(
                     "stops": stops_fmt,
                     "delay": delay,
                     "price": price.replace(",", ""),
+                    "airline_logo_url": airline_logo_url,
                 }
             )
 
