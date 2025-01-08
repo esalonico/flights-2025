@@ -1,4 +1,5 @@
 import re
+from datetime import datetime
 from typing import List, Literal, Optional
 
 from selectolax.lexbor import LexborHTMLParser, LexborNode
@@ -8,6 +9,7 @@ from .filter import TFSData
 from .flights_impl import FlightData, Passengers
 from .primp import Client, Response
 from .schema import Flight, Result
+from .utils import convert_flight_time_str_to_datetime, get_duration_in_minutes_from_string
 
 
 def fetch(params: dict) -> Response:
@@ -46,7 +48,7 @@ def get_flights_from_filter(
         res = fallback_playwright_fetch(params)
 
     try:
-        return parse_response(res)
+        return parse_response(res, filter=filter)
     except RuntimeError as e:
         if mode == "fallback":
             return get_flights_from_filter(filter, mode="force-fallback")
@@ -74,7 +76,7 @@ def get_flights(
     )
 
 
-def parse_response(r: Response, *, dangerously_allow_looping_last_item: bool = False) -> Result:
+def parse_response(r: Response, *, filter: TFSData, dangerously_allow_looping_last_item: bool = False) -> Result:
     class _blank:
         def text(self, *_, **__):
             return ""
@@ -104,33 +106,66 @@ def parse_response(r: Response, *, dangerously_allow_looping_last_item: bool = F
         is_best_flight = i == 0
 
         for item in fl.css("ul.Rk10dc li")[: (None if dangerously_allow_looping_last_item or i == 0 else -1)]:
-            # Flight name
+
+            # Get airport from & to
+            airports = item.css("div.QylvBf span span")
+            if airports:
+                airports = [a for a in airports if a.attributes.get("jscontroller") == "cNtv4b"]
+                assert len(airports) == 2, "Invalid airport nodes"
+                airport_from = airports[0].text(strip=True)
+                airport_to = airports[1].text(strip=True)
+            else:
+                airport_from = airport_to = None
+
+            # (flight name)
             name = safe(item.css_first("div.sSHqwe.tPgKwe.ogfYpf")).text(strip=True)
+
+            # Get arrival time ahead (delta days)
+            time_ahead = safe(item.css_first("span.bOzv6")).text().strip()
+            try:
+                time_ahead = int(time_ahead)
+            except ValueError:
+                time_ahead = None
 
             # Get departure & arrival time
             dp_ar_node = item.css("span.mv1WYe div")
+            search_date = datetime.strptime(filter.flight_data[0].date, "%Y-%m-%d")
             try:
-                departure_time = dp_ar_node[0].text(strip=True)
-                arrival_time = dp_ar_node[1].text(strip=True)
-            except IndexError:
-                # sometimes this is not present
-                departure_time = ""
-                arrival_time = ""
+                departure_str = dp_ar_node[0].text(strip=True)
+                departure = convert_flight_time_str_to_datetime(search_date=search_date, datetime_str=departure_str)
 
-            # Get arrival time ahead
-            time_ahead = safe(item.css_first("span.bOzv6")).text()
+                arrival_str = dp_ar_node[1].text(strip=True)
+                arrival = convert_flight_time_str_to_datetime(search_date=search_date, datetime_str=arrival_str, delta_days=time_ahead)
+            except Exception as e:
+                print("Error parsing departure and arrival time:", e)
+                print(dp_ar_node)
+                print(dp_ar_node[0].text(strip=True))
+                print(dp_ar_node[1].text(strip=True))
+
+            # Get airlines
+            airlines = name.split(".")[-1].strip() if name else None
 
             # Get duration
-            duration = safe(item.css_first("li div.Ak5kof div")).text()
+            duration_str = safe(item.css_first("li div.Ak5kof div")).text()
+            duration = get_duration_in_minutes_from_string(duration_str)
 
             # Get flight stops
             stops = safe(item.css_first(".BbR8Ec .ogfYpf")).text()
+            stops = 0 if stops == "Nonstop" else int(stops.split(" ", 1)[0])
+
+            # Get stops location
+            stops_location = item.css(".BbR8Ec div.sSHqwe.tPgKwe.ogfYpf span")
+            if stops_location:
+                stops_location = [x.text(strip=True) for x in stops_location if x.attributes.get("jscontroller") == "cNtv4b"]
+            stops_location = stops_location or None
 
             # Get delay
             delay = safe(item.css_first(".GsCCve")).text() or None
 
             # Get prices
-            price = safe(item.css_first(".YMlIz.FpEdX")).text() or "0"
+            price = safe(item.css_first(".YMlIz.FpEdX")).text() or None
+            price = price.replace(",", "") if price else None
+            price = int(re.search(r"(\d+)", price).group(1)) if price else None  # convert to int
 
             # Get airline logo url
             airline_logo_url = parse_airline_logo_url(item)
@@ -141,23 +176,19 @@ def parse_response(r: Response, *, dangerously_allow_looping_last_item: bool = F
             # Get hand luggage only
             hand_luggage_only = item.css_matches("svg.vmWDCc")
 
-            # Stops formatting
-            try:
-                stops_fmt = 0 if stops == "Nonstop" else int(stops.split(" ", 1)[0])
-            except ValueError:
-                stops_fmt = "Unknown"
-
             flights.append(
                 {
                     "is_best": is_best_flight,
-                    "name": name,
-                    "departure": " ".join(departure_time.split()),
-                    "arrival": " ".join(arrival_time.split()),
-                    "arrival_time_ahead": time_ahead,
+                    "airport_from": airport_from,
+                    "airport_to": airport_to,
+                    "airlines": airlines,
+                    "departure": departure,
+                    "arrival": arrival,
                     "duration": duration,
-                    "stops": stops_fmt,
+                    "stops": stops,
+                    "stops_location": stops_location,
                     "delay": delay,
-                    "price": price.replace(",", ""),
+                    "price": price,
                     "airline_logo_url": airline_logo_url,
                     "self_transfer": self_transfer,
                     "hand_luggage_only": hand_luggage_only,
