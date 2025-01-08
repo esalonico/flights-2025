@@ -44,7 +44,7 @@ def get_duration_in_minutes_from_string(s: str) -> int:
         20 min --> 20
         5 hr 55 min --> 60*5 + 55 = 355
     """
-    assert bool(re.search("hr|min", str(s))), "Invalid duration string format"
+    assert bool(re.search("hr|min", str(s))), "Invalid duration string format: %s" % s
 
     match = re.match(r"(?:(\d+) hr)? ?(?:(\d+) min)?", s)
     h, m = match.groups(default="0")

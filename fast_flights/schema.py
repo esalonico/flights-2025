@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Literal, Optional
 from datetime import datetime
+from typing import List, Literal, Optional
 
 
 @dataclass
@@ -22,6 +22,7 @@ class Flight:
     duration: int
     stops: int
     stops_location: Optional[str]
+    layover_duration: Optional[int] | list
     delay: Optional[str]
     price: Optional[int]
     airline_logo_url: Optional[str]
@@ -32,3 +33,9 @@ class Flight:
     def duration_human_readable(self) -> str:
         hours, minutes = divmod(self.duration, 60)
         return f"{hours} hr {minutes} min"
+
+    @property
+    def layover_duration_human_readable(self) -> Optional[str]:
+        if self.layover_duration:
+            hours, minutes = divmod(self.layover_duration, 60)
+            return f"{hours} hr {minutes} min"

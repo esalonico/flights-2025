@@ -99,6 +99,11 @@ def parse_response(r: Response, *, filter: TFSData, dangerously_allow_looping_la
         if match:
             return match.group(1)
 
+    def extract_layover_duration_from_str(s: str) -> Optional[str]:
+        match = re.match(r"(?:(\d+) hr)? ?(?:(\d+) min)?", s)
+        if match:
+            return match.group(0)
+
     parser = LexborHTMLParser(r.text)
     flights = []
 
@@ -159,6 +164,15 @@ def parse_response(r: Response, *, filter: TFSData, dangerously_allow_looping_la
                 stops_location = [x.text(strip=True) for x in stops_location if x.attributes.get("jscontroller") == "cNtv4b"]
             stops_location = stops_location or None
 
+            # Get layover duration
+            layover_duration_str = safe(item.css_first(".BbR8Ec div.sSHqwe.tPgKwe.ogfYpf")).text(strip=True)
+            layover_duration_str = extract_layover_duration_from_str(layover_duration_str)
+
+            if layover_duration_str and len(layover_duration_str) > 1:
+                layover_duration = get_duration_in_minutes_from_string(layover_duration_str)
+            else:
+                layover_duration = None
+
             # Get delay
             delay = safe(item.css_first(".GsCCve")).text() or None
 
@@ -187,6 +201,7 @@ def parse_response(r: Response, *, filter: TFSData, dangerously_allow_looping_la
                     "duration": duration,
                     "stops": stops,
                     "stops_location": stops_location,
+                    "layover_duration": layover_duration,
                     "delay": delay,
                     "price": price,
                     "airline_logo_url": airline_logo_url,
