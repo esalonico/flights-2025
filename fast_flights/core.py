@@ -15,7 +15,6 @@ from .utils import convert_flight_time_str_to_datetime, get_duration_in_minutes_
 def fetch(params: dict) -> Response:
     client = Client(impersonate="chrome_128", verify=False)
     res = client.get("https://www.google.com/travel/flights", params=params)
-    print(res.url)
     assert res.status_code == 200, f"{res.status_code} Result: {res.text_markdown}"
     return res
 
@@ -27,7 +26,6 @@ def get_flights_from_filter(
     mode: Literal["common", "fallback", "force-fallback"] = "common",
 ) -> Result:
     data = filter.as_b64()
-
     params = {
         "tfs": data.decode("utf-8"),
         "hl": "en",
@@ -149,6 +147,8 @@ def parse_response(r: Response, *, filter: TFSData, dangerously_allow_looping_la
 
             # Get airlines
             airlines = name.split(".")[-1].strip() if name else None
+            if airlines:
+                airlines = airlines.split("Operated by")[0].strip()
 
             # Get duration
             duration_str = safe(item.css_first("li div.Ak5kof div")).text()
