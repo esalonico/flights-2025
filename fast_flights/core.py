@@ -16,6 +16,7 @@ def fetch(params: dict) -> Response:
     client = Client(impersonate="chrome_128", verify=False)
     res = client.get("https://www.google.com/travel/flights", params=params)
     assert res.status_code == 200, f"{res.status_code} Result: {res.text_markdown}"
+    print(res.url)
     return res
 
 
@@ -106,6 +107,14 @@ def parse_response(r: Response, *, filter: TFSData, dangerously_allow_looping_la
     flights = []
 
     for i, fl in enumerate(parser.css('div[jsname="IWWDBc"], div[jsname="YdtKid"]')):
+        # print(fl)
+        # elements = fl.css("ul.Rk10dc li")
+        # for item in elements:
+        #     print(item.text())
+        #     print(item.attributes)
+        #     print()
+        # print("___")
+        # break
         is_best_flight = i == 0
 
         for item in fl.css("ul.Rk10dc li")[: (None if dangerously_allow_looping_last_item or i == 0 else -1)]:

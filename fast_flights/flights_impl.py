@@ -158,7 +158,7 @@ class TFSData:
             "business": PB.Seat.BUSINESS,
             "first": PB.Seat.FIRST,
         }[seat]
-
+        
         return TFSData(flight_data=flight_data, seat=seat_t, trip=trip_t, passengers=passengers, max_stops=max_stops)  # Pass max_stops into TFSData
 
     def __repr__(self) -> str:
