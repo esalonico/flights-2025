@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from itertools import product
 from typing import List, Optional
 
@@ -36,16 +36,21 @@ class SearchParams:
 # functions
 def run_search():
     """Run the search with the given params."""
-    # single outbound date
-    if len(outbound_dates) == 1:
+    # single outbound date (as as date)
+    if isinstance(outbound_dates, date):
+        outbound_dates_clean = [outbound_dates]
+    # single outbound date (as list)
+    elif len(outbound_dates) == 1:
         outbound_dates_clean = [outbound_dates[0]]
     # multiple outbound dates (range)
     else:
         outbound_dates_clean = utils.generate_date_range_between_dates(*outbound_dates)
 
     if return_dates:
-        # single return date
-        if len(return_dates) == 1:
+        # single return date (as date)
+        if isinstance(return_dates, date):
+            return_dates_clean = [return_dates]
+        elif len(return_dates) == 1:
             return_dates_clean = [return_dates[0]]
         # multiple return dates (range)
         else:
@@ -125,7 +130,8 @@ with container_params:
         )
         outbound_dates = st.date_input(
             "Outbound flight date(s)",
-            value=(datetime.today() + timedelta(days=10), datetime.today() + timedelta(days=11)),
+            # value=(datetime.today() + timedelta(days=10), datetime.today() + timedelta(days=11)),
+            value=(datetime.today() + timedelta(days=10)),
             min_value=datetime.today(),
             format="DD-MM-YYYY",
         )
@@ -133,12 +139,17 @@ with container_params:
         to_airports = st.multiselect(
             "Destination airport(s)",
             options=Airport.get_all_iatas_with_names(),
-            default=["MUC (Munich Airport)", "FMM (Memmingen Allgau Airport)"],
+            # default=["MUC (Munich Airport)", "FMM (Memmingen Allgau Airport)"],
+            default=["MUC (Munich Airport)"],
         )
         return_dates = st.date_input(
             "Return flight date(s)",
-            value=[],
-            min_value=max(outbound_dates) if outbound_dates else datetime.today(),
+            value=(datetime.today() + timedelta(days=15)),
+            min_value=(
+                max(outbound_dates)
+                if isinstance(outbound_dates, list) and outbound_dates
+                else outbound_dates if isinstance(outbound_dates, datetime) else datetime.today()
+            ),
             format="DD-MM-YYYY",
         )
     with col3:
@@ -163,6 +174,7 @@ def make_flights_dataframe() -> pd.DataFrame:
     df["airlines"] = df["airlines"].apply(lambda x: x.split(", ") if x else None)
 
     # fix data types
+    df = df[df["price"] != "Price unavailable"]
     df["price"] = df["price"].astype(int)
 
     # sort

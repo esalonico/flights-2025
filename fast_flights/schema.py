@@ -38,7 +38,7 @@ class Airport:
         airport_data = AIRPORTS_DATA[iata]
         # set iata code
         self.iata = iata
-        
+
         # set other attributes
         for key, value in airport_data.items():
             setattr(self, key, value)
@@ -64,6 +64,7 @@ class Flight:
     airport_from: str
     airport_to: str
     airlines: Optional[str]
+    flight_numbers: Optional[str]
     departure: datetime
     arrival: datetime
     duration: int

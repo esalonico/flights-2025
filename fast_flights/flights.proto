@@ -11,7 +11,7 @@ message Info {
 message FlightData {
   string date = 2;
   // outbound_flight contains the info of the parent flight when it's a return flight
-  optional ParentOutboundFlight outbound_flight = 4; // optional because the outbound flight itself doesn't have it, only return
+  repeated ParentOutboundFlight outbound_flight = 4; // optional because the outbound flight itself doesn't have it, only return
   optional int32 max_stops = 5;
   Airport from_flight = 13;
   Airport to_flight = 14;

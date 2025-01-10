@@ -1,6 +1,6 @@
 import re
 from datetime import datetime
-from typing import List, Literal, Optional
+from typing import List, Literal, Optional, Tuple
 
 from selectolax.lexbor import LexborHTMLParser, LexborNode
 
@@ -29,7 +29,6 @@ def get_flights_from_filter(filter: TFSData, currency: str = "EUR") -> Result:
         "tfu": "EgQIABABIgA",
         "curr": currency,
     }
-    
 
     # fetch data
     try:
@@ -95,18 +94,31 @@ def parse_response(r: Response, *, filter: TFSData, dangerously_allow_looping_la
         if match:
             return match.group(0)
 
+    def extract_airline_code_and_flight_number(s: str) -> Optional[List[Tuple[str, str]]]:
+        """
+        Extracts the airline code and flight number from a string.
+
+        :param s: The string to extract the airline code and flight number from.
+        :return: A list of tuples containing the airline code and flight number. Returns [] if no matches are found.
+
+        Example:
+        https://www.travelimpactmodel.org/lookup/flight?itinerary=FCO-FLR-AZ-1679-20250120,FLR-MUC-EN-8191-2025012
+        [("AZ", "1679"), ("EN", "8191")]
+        
+        Special cases:
+        - A3 1234 (number in flight code)
+        - FV 12 (flight code has only 2 digits)
+        """
+        pattern = r"-([A-Z0-9]{2})-(\d{2,4})-"
+        result = re.findall(pattern, s)
+        if not result:
+            print("No airline code and flight number found in:", s)
+        return result
+
     parser = LexborHTMLParser(r.text)
     flights = []
 
     for i, fl in enumerate(parser.css('div[jsname="IWWDBc"], div[jsname="YdtKid"]')):
-        # print(fl)
-        # elements = fl.css("ul.Rk10dc li")
-        # for item in elements:
-        #     print(item.text())
-        #     print(item.attributes)
-        #     print()
-        # print("___")
-        # break
         is_best_flight = i == 0
 
         for item in fl.css("ul.Rk10dc li")[: (None if dangerously_allow_looping_last_item or i == 0 else -1)]:
@@ -150,6 +162,15 @@ def parse_response(r: Response, *, filter: TFSData, dangerously_allow_looping_la
             airlines = name.split(".")[-1].strip() if name else None
             if airlines:
                 airlines = airlines.split("Operated by")[0].strip()
+
+            # Get flight number
+            flight_info_raw = item.css_first(".NZRfve")
+            flight_info_raw = flight_info_raw.attributes.get("data-travelimpactmodelwebsiteurl")
+            flight_info = extract_airline_code_and_flight_number(flight_info_raw)
+            if flight_info:
+                flight_numbers = [f"{code}{number}" for code, number in flight_info]
+            else:
+                flight_numbers = None
 
             # Get duration
             duration_str = safe(item.css_first("li div.Ak5kof div")).text()
@@ -198,6 +219,7 @@ def parse_response(r: Response, *, filter: TFSData, dangerously_allow_looping_la
                     "airport_from": airport_from,
                     "airport_to": airport_to,
                     "airlines": airlines,
+                    "flight_numbers": flight_numbers,
                     "departure": departure,
                     "arrival": arrival,
                     "duration": duration,
