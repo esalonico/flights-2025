@@ -9,7 +9,8 @@ from .filter import TFSData
 from .flights_impl import FlightData, Passengers
 from .primp import Client, Response
 from .schema import Flight, Result
-from .utils import convert_flight_time_str_to_datetime, get_duration_in_minutes_from_string
+from .utils import (convert_flight_time_str_to_datetime,
+                    get_duration_in_minutes_from_string)
 
 
 def fetch(params: dict) -> Response:
@@ -20,12 +21,7 @@ def fetch(params: dict) -> Response:
     return res
 
 
-def get_flights_from_filter(
-    filter: TFSData,
-    currency: str = "",
-    *,
-    mode: Literal["common", "fallback", "force-fallback"] = "common",
-) -> Result:
+def get_flights_from_filter(filter: TFSData, currency: str = "EUR") -> Result:
     data = filter.as_b64()
     params = {
         "tfs": data.decode("utf-8"),
@@ -33,24 +29,20 @@ def get_flights_from_filter(
         "tfu": "EgQIABABIgA",
         "curr": currency,
     }
+    
 
-    if mode in {"common", "fallback"}:
-        try:
-            res = fetch(params)
-        except AssertionError as e:
-            if mode == "fallback":
-                res = fallback_playwright_fetch(params)
-            else:
-                raise e
-
-    else:
+    # fetch data
+    try:
+        res = fetch(params)
+    except AssertionError as e:
         res = fallback_playwright_fetch(params)
+    except Exception as e:
+        raise e
 
+    # parse data
     try:
         return parse_response(res, filter=filter)
-    except RuntimeError as e:
-        if mode == "fallback":
-            return get_flights_from_filter(filter, mode="force-fallback")
+    except Exception as e:
         raise e
 
 

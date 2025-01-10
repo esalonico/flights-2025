@@ -65,7 +65,7 @@ def run_search():
     all_results = []
 
     for filter in tqdm(filters):
-        result = get_flights_from_filter(filter, currency=search_params.currency, mode="common")
+        result = get_flights_from_filter(filter, currency=search_params.currency)
         if result:
             all_results.append(result)
 
@@ -99,7 +99,7 @@ def create_filters_from_search_params(search_params: SearchParams) -> List[TFSDa
         filter = create_filter(
             flight_data=flight_data,
             trip="round-trip" if return_date else "one-way",
-            passengers=Passengers(adults=1),
+            passengers=Passengers(n=1),
             seat="economy",
             max_stops=search_params.max_stops,
         )

@@ -1,4 +1,5 @@
-from typing import Literal, List, Optional
+from typing import List, Literal, Optional
+
 from .flights_impl import FlightData, Passengers, TFSData
 
 

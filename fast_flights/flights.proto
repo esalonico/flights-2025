@@ -1,18 +1,48 @@
 syntax = "proto3";
 
-import "common.proto";
-
 // root message that captures all the data
 message Info {
   repeated FlightData data = 3;
-  common.common.Seat seat = 9;
-  repeated common.common.Passenger passengers = 8;
-  common.common.Trip trip = 19;
+  repeated Passenger passengers = 8;
+  Seat seat = 9;
+  Trip trip = 19;
 }
 
 message FlightData {
   string date = 2;
-  common.common.Airport from_flight = 13;
-  common.common.Airport to_flight = 14;
+  // outbound_flight contains the info of the parent flight when it's a return flight
+  optional ParentOutboundFlight outbound_flight = 4; // optional because the outbound flight itself doesn't have it, only return
   optional int32 max_stops = 5;
+  Airport from_flight = 13;
+  Airport to_flight = 14;
+}
+
+message ParentOutboundFlight {
+  string from_airport = 1;
+  string date = 2;
+  string to_airport = 3;
+  string airline_code = 5;
+  string flight_number = 6;
+}
+
+
+message Airport {
+  string airport = 2;
+}
+enum Trip {
+  UNKNOWN_TRIP = 0;
+  ROUND_TRIP = 1;
+  ONE_WAY = 2;
+  MULTI_CITY = 3; // not implemented
+}
+enum Passenger {
+  UNKNOWN_PASSENGER = 0;
+  ADULT = 1;
+}
+enum Seat {
+  UNKNOWN_SEAT = 0;
+  ECONOMY = 1;
+  PREMIUM_ECONOMY = 2;
+  BUSINESS = 3;
+  FIRST = 4;
 }

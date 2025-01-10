@@ -7,7 +7,7 @@ if __name__ == "__main__":
             FlightData(date="2025-04-20", from_airport="MUC", to_airport="FCO"),
         ],
         trip="round-trip",
-        passengers=Passengers(adults=1),
+        passengers=Passengers(n=1),
         seat="economy",
     )
 
