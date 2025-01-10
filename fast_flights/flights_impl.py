@@ -1,50 +1,11 @@
 import base64
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, List, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, List, Literal, Optional
 
 from . import flights_pb2 as PB  # protobuf generated code
-from ._generated_enum import Airport
 
 if TYPE_CHECKING:
     PB: Any
-
-
-class FlightData:
-    """Represents flight data."""
-
-    __slots__ = ("date", "from_airport", "to_airport", "max_stops")
-    date: str
-    from_airport: str
-    to_airport: str
-    max_stops: Optional[int]
-
-    def __init__(self, *, date: str, from_airport: str, to_airport: str, max_stops: Optional[int] = None):
-        assert datetime.strptime(date, "%Y-%m-%d"), "Invalid date format. Use YYYY-MM-DD"
-        assert datetime.strptime(date, "%Y-%m-%d") >= datetime.now(), "Date must be in the future"
-        assert isinstance(from_airport, str) and isinstance(to_airport, str), "Airport codes must be strings"
-
-        self.date = date
-        self.from_airport = from_airport
-        self.to_airport = to_airport
-        self.max_stops = max_stops
-
-    def attach(self, info: PB.Info):  # type: ignore
-        """
-        Attach flight data to the provided protobuf object.
-
-        info (PB.Info): The protobuf Info object to which the flight data will be attached.
-        """
-        data = info.data.add()
-
-        data.date = self.date
-        data.from_flight.airport = self.from_airport
-        data.to_flight.airport = self.to_airport
-
-        if self.max_stops is not None:
-            data.max_stops = self.max_stops
-
-    def __repr__(self) -> str:
-        return f"FlightData(date={self.date!r}, from_airport={self.from_airport!r}, to_airport={self.to_airport!r}, max_stops={self.max_stops!r})"
 
 
 class OutboundParentFlight:
@@ -66,20 +27,70 @@ class OutboundParentFlight:
         self.airline_code = airline_code
         self.flight_number = flight_number
 
-    def attach(self, parent_outbound_flight: PB.ParentOutboundFlight):  # type: ignore
+    def attach(self, flight_data: PB.FlightData):  # type: ignore
         """
-        Attach outbound parent flight data to the provided protobuf object.
+        Attach outbound parent flight data (self) to the provided protobuf object.
 
-        parent_outbound_flight (PB.ParentOutboundFlight): The protobuf ParentOutboundFlight object to which the outbound parent flight data will be attached.
+        :param flight_data: The protobuf FlightData object to which the outbound parent flight data will be attached.
         """
-        parent_outbound_flight.date = self.date
-        parent_outbound_flight.from_flight.airport = self.from_airport
-        parent_outbound_flight.to_flight.airport = self.to_airport
-        parent_outbound_flight.airline_code = self.airline_code
-        parent_outbound_flight.flight_number = self.flight_number
+        for f in flight_data:
+            outbound_flight = f.outbound_flight.add()
+            outbound_flight.from_airport = self.from_airport
+            outbound_flight.date = self.date
+            outbound_flight.to_airport = self.to_airport
+            outbound_flight.airline_code = self.airline_code
+            outbound_flight.flight_number = self.flight_number
 
     def __repr__(self):
         return f"OutboundParentFlight(date={self.date!r}, from_airport={self.from_airport!r}, to_airport={self.to_airport!r}, airline_code={self.airline_code!r}, flight_number={self.flight_number!r})"
+
+
+class FlightData:
+    """Represents flight data."""
+
+    __slots__ = ("date", "from_airport", "to_airport", "max_stops", "outbound_flight")
+    date: str
+    from_airport: str
+    to_airport: str
+    max_stops: Optional[int]
+    outbound_flight: Optional[OutboundParentFlight]
+
+    def __init__(
+        self,
+        *,
+        date: str,
+        from_airport: str,
+        to_airport: str,
+        max_stops: Optional[int] = None,
+        outbound_flight: Optional[OutboundParentFlight] = None,
+    ):
+        assert datetime.strptime(date, "%Y-%m-%d"), "Invalid date format. Use YYYY-MM-DD"
+        assert datetime.strptime(date, "%Y-%m-%d") >= datetime.now(), "Date must be in the future"
+        assert isinstance(from_airport, str) and isinstance(to_airport, str), "Airport codes must be strings"
+
+        self.date = date
+        self.from_airport = from_airport
+        self.to_airport = to_airport
+        self.max_stops = max_stops
+        self.outbound_flight = outbound_flight
+
+    def attach(self, info: PB.Info):  # type: ignore
+        """
+        Attach flight data (self) to the provided protobuf object.
+
+        info (PB.Info): The protobuf Info object to which the flight data will be attached.
+        """
+        data = info.data.add()
+
+        data.date = self.date
+        data.from_flight.airport = self.from_airport
+        data.to_flight.airport = self.to_airport
+
+        if self.max_stops is not None:
+            data.max_stops = self.max_stops
+
+    def __repr__(self) -> str:
+        return f"FlightData(date={self.date!r}, from_airport={self.from_airport!r}, to_airport={self.to_airport!r}, max_stops={self.max_stops!r})"
 
 
 class Passengers:
@@ -117,14 +128,14 @@ class TFSData:
         trip: PB.Trip,  # type: ignore
         passengers: Passengers,
         max_stops: Optional[int] = None,
-        outbound_parent_flight: OutboundParentFlight = None,
+        outbound_parent_flights: Optional[List[OutboundParentFlight]] = None,  # type: ignore
     ):
         self.flight_data = flight_data
         self.seat = PB.Seat.ECONOMY  # default to economy
         self.trip = trip
         self.passengers = passengers
         self.max_stops = max_stops
-        self.outbound_parent_flight = outbound_parent_flight
+        self.outbound_parent_flights = outbound_parent_flights
 
     def pb(self) -> PB.Info:  # type: ignore
         """
@@ -144,9 +155,10 @@ class TFSData:
         for fd in self.flight_data:
             fd.attach(info)
 
-        # if outbound_parent_flight is set, attach it to the protobuf object
-        if self.outbound_parent_flight is not None:
-            self.outbound_parent_flight.attach(info.outbound_parent_flight)
+        # # if outbound_parent_flight is set, attach it to the protobuf object
+        # if self.outbound_parent_flights is not None:
+        #     for parent_flight in self.outbound_parent_flights:
+        #         parent_flight.attach(info.data)
 
         # if max_stops is set, attach it to all flight data entries
         if self.max_stops is not None:
@@ -167,9 +179,8 @@ class TFSData:
         flight_data: List[FlightData],
         trip: Literal["round-trip", "one-way", "multi-city"],
         passengers: Passengers,
-        seat: Literal["economy", "premium-economy", "business", "first"],
         max_stops: Optional[int] = None,
-        outbound_parent_flight: Optional[OutboundParentFlight] = None,
+        outbound_parent_flights: Optional[List[OutboundParentFlight]] = None,
     ):
         """Use '?tfs=' from an interface."""
 
@@ -186,5 +197,5 @@ class TFSData:
             trip=trip_t,
             passengers=passengers,
             max_stops=max_stops,
-            outbound_parent_flight=outbound_parent_flight,
+            outbound_parent_flights=outbound_parent_flights,
         )

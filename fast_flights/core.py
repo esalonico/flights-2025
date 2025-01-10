@@ -6,11 +6,10 @@ from selectolax.lexbor import LexborHTMLParser, LexborNode
 
 from .fallback_playwright import fallback_playwright_fetch
 from .filter import TFSData
-from .flights_impl import FlightData, Passengers
+from .flights_impl import FlightData, OutboundParentFlight, Passengers
 from .primp import Client, Response
 from .schema import Flight, Result
-from .utils import (convert_flight_time_str_to_datetime,
-                    get_duration_in_minutes_from_string)
+from .utils import convert_flight_time_str_to_datetime, get_duration_in_minutes_from_string
 
 
 def fetch(params: dict) -> Response:
@@ -50,20 +49,65 @@ def get_flights(
     flight_data: List[FlightData],
     trip: Literal["round-trip", "one-way", "multi-city"],
     passengers: Passengers,
-    seat: Literal["economy", "premium-economy", "business", "first"],
-    fetch_mode: Literal["common", "fallback", "force-fallback"] = "common",
     max_stops: Optional[int] = None,
 ) -> Result:
-    return get_flights_from_filter(
-        TFSData.from_interface(
-            flight_data=flight_data,
-            trip=trip,
-            passengers=passengers,
-            seat=seat,
-            max_stops=max_stops,
-        ),
-        mode=fetch_mode,
-    )
+    """Get flights from the given parameters."""
+    filter = TFSData.from_interface(flight_data=flight_data, trip=trip, passengers=passengers, max_stops=max_stops)
+    results = get_flights_from_filter(filter=filter)
+
+    if not results:
+        return
+
+    if not results.flights:
+        return results
+
+    # all flights for all combinations
+    results_flights = [fl for fl in results.flights][0:1]
+    print("Results:", len(results_flights))
+    print(results_flights)
+
+    # get return flights
+    if trip == "round-trip":
+        for outbound_flight in results_flights:
+            subflights = []
+            for subflight_idx in range(len(outbound_flight.flight_numbers)):
+                subflights.append(
+                    OutboundParentFlight(
+                        date=outbound_flight.departure.strftime("%Y-%m-%d"),
+                        from_airport=outbound_flight.airport_from,
+                        to_airport=outbound_flight.airport_to,
+                        airline_code=outbound_flight.flight_numbers[subflight_idx][:2],
+                        flight_number=outbound_flight.flight_numbers[subflight_idx][2:],
+                    )
+                )
+
+            print("SUBFLIGHTS")
+            print(subflights)
+            print()
+
+            return_flights_filter = TFSData.from_interface(
+                flight_data=flight_data,
+                trip=trip,
+                passengers=passengers,
+                max_stops=max_stops,
+                outbound_parent_flights=subflights,
+            )
+
+            print("FILTER")
+            print(return_flights_filter.__dict__)
+            x = return_flights_filter.as_b64().decode("utf-8")
+            print(f"https://www.google.com/travel/flights?tfs={x}&hl=en&tfu=EgQIABABIgA&curr=EUR")
+            print()
+
+            return_flights = get_flights_from_filter(filter=return_flights_filter)
+
+            if return_flights:
+                for rf in return_flights.flights:
+                    print("+++")
+                    print(rf.__dict__)
+                    print("+++")
+
+    return results
 
 
 def parse_response(r: Response, *, filter: TFSData, dangerously_allow_looping_last_item: bool = False) -> Result:
@@ -104,7 +148,7 @@ def parse_response(r: Response, *, filter: TFSData, dangerously_allow_looping_la
         Example:
         https://www.travelimpactmodel.org/lookup/flight?itinerary=FCO-FLR-AZ-1679-20250120,FLR-MUC-EN-8191-2025012
         [("AZ", "1679"), ("EN", "8191")]
-        
+
         Special cases:
         - A3 1234 (number in flight code)
         - FV 12 (flight code has only 2 digits)

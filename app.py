@@ -8,7 +8,7 @@ import streamlit as st
 from tqdm import tqdm
 
 from fast_flights import utils
-from fast_flights.core import get_flights_from_filter
+from fast_flights.core import get_flights
 from fast_flights.filter import create_filter
 from fast_flights.flights_impl import FlightData, Passengers, TFSData
 from fast_flights.schema import Airport
@@ -31,6 +31,26 @@ class SearchParams:
 
     assert max_stops is None or max_stops >= 0
     assert return_dates is None or all(rd > od for od, rd in zip(outbound_dates, return_dates))  # all return dates after outbound
+
+    def create_search_queries(self) -> List[dict]:
+        """Create a list of search queries based on the search params."""
+        all_queries = []
+        combinations = list(product(self.from_airports, self.to_airports, self.outbound_dates, self.return_dates if self.return_dates else [None]))
+
+        for from_airport, to_airport, outbound_date, return_date in combinations:
+            flight_data = [FlightData(date=outbound_date.strftime("%Y-%m-%d"), from_airport=from_airport.iata, to_airport=to_airport.iata)]
+            if return_date:
+                flight_data.append(FlightData(date=return_date.strftime("%Y-%m-%d"), from_airport=to_airport.iata, to_airport=from_airport.iata))
+
+            query = {
+                "flight_data": flight_data,
+                "trip": "round-trip" if return_date else "one-way",
+                "passengers": Passengers(n=1),
+                "max_stops": self.max_stops,
+            }
+            all_queries.append(query)
+
+        return all_queries
 
 
 # functions
@@ -66,11 +86,11 @@ def run_search():
         max_stops=max_stops,
     )
 
-    filters = create_filters_from_search_params(search_params)
+    search_queries = search_params.create_search_queries()
     all_results = []
 
-    for filter in tqdm(filters):
-        result = get_flights_from_filter(filter, currency=search_params.currency)
+    for query in tqdm(search_queries):
+        result = get_flights(**query)
         if result:
             all_results.append(result)
 
@@ -105,7 +125,6 @@ def create_filters_from_search_params(search_params: SearchParams) -> List[TFSDa
             flight_data=flight_data,
             trip="round-trip" if return_date else "one-way",
             passengers=Passengers(n=1),
-            seat="economy",
             max_stops=search_params.max_stops,
         )
         all_filters.append(filter)
