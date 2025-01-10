@@ -94,7 +94,7 @@ def create_filters_from_search_params(search_params: SearchParams) -> List[TFSDa
     for from_airport, to_airport, outbound_date, return_date in combinations:
         flight_data = [FlightData(date=outbound_date.strftime("%Y-%m-%d"), from_airport=from_airport.iata, to_airport=to_airport.iata)]
         if return_date:
-            flight_data.append([FlightData(date=return_date.strftime("%Y-%m-%d"), from_airport=to_airport.iata, to_airport=from_airport.iata)])
+            flight_data.append(FlightData(date=return_date.strftime("%Y-%m-%d"), from_airport=to_airport.iata, to_airport=from_airport.iata))
 
         filter = create_filter(
             flight_data=flight_data,
@@ -194,7 +194,7 @@ with container_results:
             height=600 if len(df) > 10 else None,
             use_container_width=True,
         )
-        
+
         # stats
         st.write("### Stats")
         # TODO: create plots

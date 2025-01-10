@@ -2,3 +2,7 @@
 /main.py
 .ruff/
 .idea
+
+archive/
+.venv/
+.vscode
