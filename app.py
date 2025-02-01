@@ -163,6 +163,7 @@ def make_flights_dataframe() -> pd.DataFrame:
     df["airlines"] = df["airlines"].apply(lambda x: x.split(", ") if x else None)
 
     # fix data types
+    df = df[df["price"] != "Price unavailable"]
     df["price"] = df["price"].astype(int)
 
     # sort
